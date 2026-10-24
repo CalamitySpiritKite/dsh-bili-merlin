@@ -185,9 +185,10 @@ export async function apiGet(input, headers = {}, opts = {}) {
       const hit = stale()
       if (hit) return hit
       // 2026-10-24（主人拍板的 B 止血第 2 条）：告诉调用方「有浏览器兜底」
-      // 设 BILI_USE_BROWSER=1 的进程可以切到 tools/browser-rescue.mjs 像真人一样抓
+      // 浏览器兜底脚本是主人本机专属（读本机凭据、开本机 Edge），不进公开仓库，
+      // 所以这里只提「设变量启用」，不写死文件名（避免别人 clone 后找不到文件而困惑）
       const browserNote = process.env.BILI_USE_BROWSER === '1'
-        ? '（已启用浏览器兜底：node tools/browser-rescue.mjs view <BV> 可像真人一样抓，不受此熔断限制）'
+        ? '（已启用浏览器兜底：本机浏览器可像真人一样抓，不受此熔断限制）'
         : '（本机可设 BILI_USE_BROWSER=1 启用浏览器兜底，绕开 IP 限流）'
       return { code: -412, message: `HTTP ${response.status}（B站 风控）—— 已熔断 ${mins} 分钟，别再打了${browserNote}` }
     }

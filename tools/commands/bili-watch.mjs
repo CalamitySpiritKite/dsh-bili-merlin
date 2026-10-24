@@ -107,7 +107,9 @@ console.log(`时间点  : ${times.map((t, i) => `${i + 1}=${fmt(t)}`).join('  ')
 // 这个 Gyan 版 ffmpeg 的 fontconfig 还是坏的（fontfile 路径里的 C: 冒号会把整条 filterchain
 // 切碎，2026-10-24 实测 7 种引号/转义写法全崩）。text 里不带冒号就绕开全部转义坑。
 // 拿不到可烧字体的环境时，降级为不烧时间戳、只抽帧（别让整条链路挂掉）。
-const canBurnStamp = process.platform !== 'win32' || false   // 目前只在 Windows 实测过；留成开关
+// Windows 上这个 Gyan 版 ffmpeg 的 fontconfig 是坏的（font=arial 也走 fontconfig，
+// 实测崩 0xC0000139），所以 Windows 一律不烧；哪天换上带正常 fontconfig 的构建再开。
+const canBurnStamp = process.platform !== 'win32'
 const tmp = path.join(outDir, `.frames-${stamp}`)
 fs.mkdirSync(tmp, { recursive: true })
 try {

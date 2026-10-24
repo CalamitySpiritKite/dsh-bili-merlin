@@ -1,30 +1,7 @@
-# 依赖
-node_modules/
+# 浏览器兜底脚本：只在本机（已安装副本 / workspace）用，不进公开仓库
+# 它读本机凭据、开本机 Edge，是主人本机专属的 412 退路，不该随开源包发出去
+tools/browser-rescue.mjs
 
-# 运行时数据（绝不能提交）
-bili-whale.config.json
-config.json
-.bili-ai/
-.env
-.env.*
-
-# 日志与备份
-*.log
-*.bak
-*.bak-*
-*.jsonl
-
-# 构建产物
-dist/
-build/
-
-# 数据库 / 缓存
-*.db
-*.sqlite
-*.zstd
-.cache/
-
-# 系统
+# 开发期杂项
 .DS_Store
-Thumbs.db
-desktop.ini
+*.log

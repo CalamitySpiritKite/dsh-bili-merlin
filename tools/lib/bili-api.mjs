@@ -93,10 +93,16 @@ const noCacheEnv = () => process.env.BILI_NO_CACHE === "1"   // 每次调用时�
 let lastRequestAt = 0
 let requestQueue = Promise.resolve()
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// 2026-10-24（主人拍板的 B 止血第 1 条）：节流加随机抖动。
+// 原来每次精确 300ms 间隔——这个「精确」本身就是脚本特征（真人的请求间隔从来不是常数），
+// 改成本次等待 = 300ms + 0~400ms 随机抖动，让相邻两次请求的间隔不再规整。
+// 只加不减（最小还是 300ms），不会让请求变密，只会让节奏像人一点。
 function throttle() {
   const turn = requestQueue.then(async () => {
+    const min = 300
+    const target = min + Math.floor(Math.random() * 400)   // 300~700ms，每次不一样
     const gap = Date.now() - lastRequestAt
-    if (gap < 300) await sleep(300 - gap)
+    if (gap < target) await sleep(target - gap)
     lastRequestAt = Date.now()
   })
   requestQueue = turn.catch(() => {})
@@ -178,7 +184,12 @@ export async function apiGet(input, headers = {}, opts = {}) {
       if (!noCacheEnv()) writeJson(BAN_FILE, { ...readJson(BAN_FILE, {}), streak, endpoint: url.pathname })
       const hit = stale()
       if (hit) return hit
-      return { code: -412, message: `HTTP ${response.status}（B站 风控）—— 已熔断 ${mins} 分钟，别再打了` }
+      // 2026-10-24（主人拍板的 B 止血第 2 条）：告诉调用方「有浏览器兜底」
+      // 设 BILI_USE_BROWSER=1 的进程可以切到 tools/browser-rescue.mjs 像真人一样抓
+      const browserNote = process.env.BILI_USE_BROWSER === '1'
+        ? '（已启用浏览器兜底：node tools/browser-rescue.mjs view <BV> 可像真人一样抓，不受此熔断限制）'
+        : '（本机可设 BILI_USE_BROWSER=1 启用浏览器兜底，绕开 IP 限流）'
+      return { code: -412, message: `HTTP ${response.status}（B站 风控）—— 已熔断 ${mins} 分钟，别再打了${browserNote}` }
     }
     if (!response.ok) return { code: -1, message: `HTTP ${response.status}（B站风控或接口异常，请稍后重试；见 README 排障）` }
 

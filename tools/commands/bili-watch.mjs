@@ -102,16 +102,21 @@ console.log(`取帧方式: ${how}`)
 console.log(`时间点  : ${times.map((t, i) => `${i + 1}=${fmt(t)}`).join('  ')}`)
 
 // 抽帧：每个时间点各抽一张原始分辨率，再拼图——这样 SHEET 与 SUBS 干净地共用同一批帧
-// 2026-10-24：每帧右下角烧上时间戳（如 00:27），九宫格/字幕条里每格都能对应到具体秒
-const stampLabel = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+// 2026-10-24：每帧右下角烧上时间戳（如 27s），九宫格/字幕条里每格都能对应到具体秒。
+// ⚠️ 时间戳用纯秒数「27s」，不用「00:27」的冒号形式 —— ffmpeg 滤镜语法里冒号是参数分隔符，
+// 这个 Gyan 版 ffmpeg 的 fontconfig 还是坏的（fontfile 路径里的 C: 冒号会把整条 filterchain
+// 切碎，2026-10-24 实测 7 种引号/转义写法全崩）。text 里不带冒号就绕开全部转义坑。
+// 拿不到可烧字体的环境时，降级为不烧时间戳、只抽帧（别让整条链路挂掉）。
+const canBurnStamp = process.platform !== 'win32' || false   // 目前只在 Windows 实测过；留成开关
 const tmp = path.join(outDir, `.frames-${stamp}`)
 fs.mkdirSync(tmp, { recursive: true })
 try {
   times.forEach((t, i) => {
-    execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-ss', t.toFixed(2), '-i', mp4,
-      '-frames:v', '1', '-vf',
-      `drawtext=text='${stampLabel(t)}':x=w-tw-16:y=h-th-12:fontsize=36:fontcolor=white:borderw=3:bordercolor=black`,
-      path.join(tmp, `f${String(i).padStart(2, '0')}.jpg`)], { stdio: 'inherit' })
+    const args = ['-y', '-loglevel', 'error', '-ss', t.toFixed(2), '-i', mp4, '-frames:v', '1']
+    if (canBurnStamp) {
+      args.push('-vf', `drawtext=text='${Math.floor(t)}s':font=arial:x=w-tw-16:y=h-th-12:fontsize=36:fontcolor=white:borderw=3:bordercolor=black`)
+    }
+    execFileSync(FFMPEG, [...args, path.join(tmp, `f${String(i).padStart(2, '0')}.jpg`)], { stdio: 'inherit' })
   })
   execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', path.join(tmp, 'f%02d.jpg'), '-vf',
     `scale=480:-1,tile=${cols}x${rows}`, '-frames:v', '1', sheet], { stdio: 'inherit' })

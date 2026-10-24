@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bilibili Whale · Merlin",
+    "description": "A self-driving Bilibili agent: wakes on its own schedule, picks videos, understands them (subtitles / danmaku heat / top comments / frame grids), keeps two diaries, and shares the good ones with you. Also ships a DM whitelist with two-way replies, per-action toggles (like / coin / favorite / follow / like-comment / triple, each with a daily cap), a watch-history card wall, an environment self-check, and pre-send reply review. Fully standalone."
+  }
+}

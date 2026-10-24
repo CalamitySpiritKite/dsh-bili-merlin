@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# 运行时数据（绝不能提交）
+bili-whale.config.json
+config.json
+.bili-ai/
+.env
+.env.*
+
+# 日志与备份
+*.log
+*.bak
+*.bak-*
+*.jsonl
+
+# 构建产物
+dist/
+build/
+
+# 数据库 / 缓存
+*.db
+*.sqlite
+*.zstd
+.cache/
+
+# 系统
+.DS_Store
+Thumbs.db
+desktop.ini

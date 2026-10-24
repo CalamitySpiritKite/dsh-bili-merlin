@@ -1,0 +1,18 @@
+# ============================================================================
+# dsh-bili-merlin —— DSH bundle patch
+# ============================================================================
+# 插件挂载声明：DSH 启动时把本插件插进 profile 的配置树。
+#
+# 安装（本地开发，link 到源码目录）：
+#   dsh plugin --profile desktop add "link:<本地路径>/dsh-bili-merlin"
+# 或发布后：
+#   dsh plugin --profile desktop add dsh-bili-merlin
+#
+# ⚠️ `name:` 必须与安装后的**包名**完全一致（这里是 dsh-bili-merlin），否则表现为
+#    「装上了但设置页 404」。
+# 装完后设置页在：DSH 里点「插件 → 养鱼·梅林」
+# ============================================================================
+
+- insert:
+    - id: dsh-bili-merlin
+      name: dsh-bili-merlin

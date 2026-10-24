@@ -1,0 +1,58 @@
+{
+  "name": "dsh-bili-merlin",
+  "version": "1.0.0",
+  "description": "养鱼·梅林：会自己刷 B 站的 agent。按生物钟醒来、选题、看懂视频（字幕 / 弹幕热区 / 热评 / 抽帧九宫格）、写两本日记，值得的分享给你。带私信白名单双向回复、动作开关（点赞 / 投币 / 收藏 / 关注 UP 主 / 评论点赞 / 一键三连，各自带每日上限）、观看记录卡片墙、环境自检、待审回复、通知推送。完全独立运行，不依赖其他插件。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "bilibili",
+    "agent",
+    "diary",
+    "dm",
+    "history",
+    "selfcheck",
+    "like",
+    "coin",
+    "favorite",
+    "follow",
+    "triple",
+    "actions"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "tools",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CalamitySpiritKite/dsh-bili-merlin.git"
+  },
+  "homepage": "https://github.com/CalamitySpiritKite/dsh-bili-merlin#readme",
+  "bugs": {
+    "url": "https://github.com/CalamitySpiritKite/dsh-bili-merlin/issues"
+  }
+}

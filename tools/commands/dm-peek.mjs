@@ -20,6 +20,8 @@ import { fileURLToPath } from 'node:url'
 import { config } from '../lib/config.mjs'
 import { loadCred, missingForWrite, explainCode } from '../lib/cred.mjs'
 import { stableDevIdIfAny } from './dm-devid.mjs'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["私信"] })  // 防提示注入：牌子上在最前面
 
 const argv = process.argv.slice(2)
 const opt = {}

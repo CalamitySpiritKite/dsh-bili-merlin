@@ -4,6 +4,8 @@ import { apiGet } from '../lib/bili-api.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["简介", "字幕", "弹幕", "评论"] })  // 防提示注入：牌子上在最前面
 
 const BVID = process.argv[2]
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'

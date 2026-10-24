@@ -11,6 +11,8 @@ import path from 'node:path'
 import { config } from '../lib/config.mjs'
 import crypto from 'node:crypto'
 import { dshPath } from '../lib/paths.mjs'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["视频标题", "简介"] })  // 防提示注入：牌子上在最前面
 
 
 const argv = process.argv.slice(2)

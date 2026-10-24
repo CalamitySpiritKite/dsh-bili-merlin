@@ -16,6 +16,8 @@ import { apiGet } from '../lib/bili-api.mjs'
 //      写操作（发/删评论）另见 comment.mjs，那是另一套（WBI + bili_jct）。
 import fs from 'node:fs'
 import path from 'node:path'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["评论"] })  // 防提示注入：牌子上在最前面
 
 const argv = process.argv.slice(2)
 const bvid = argv.find((a) => !a.startsWith('--'))

@@ -16,6 +16,8 @@ import fs from 'node:fs'
 import { config } from '../lib/config.mjs'
 import path from 'node:path'
 import { makeHeaders, pullFeed, resolveLatestReply } from '../lib/msgfeed.mjs'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["评论", "提到我的消息"] })  // 防提示注入：牌子上在最前面
 
 const args = process.argv.slice(2)
 const get = (k, d) => {

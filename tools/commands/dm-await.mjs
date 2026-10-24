@@ -10,6 +10,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { config } from '../lib/config.mjs'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["私信"] })  // 防提示注入：牌子上在最前面
 
 const argv = process.argv.slice(2)
 const opt = {}

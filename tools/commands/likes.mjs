@@ -12,6 +12,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { config } from '../lib/config.mjs'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["点赞通知"] })  // 防提示注入：牌子上在最前面
 
 const HOME = process.env.USERPROFILE || process.env.HOME || '/'
 const argv = process.argv.slice(2)

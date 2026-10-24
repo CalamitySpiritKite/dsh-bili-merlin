@@ -14,6 +14,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { dshPath } from '../lib/paths.mjs'
+import { installUntrustedGuard } from '../lib/untrusted.mjs'
+installUntrustedGuard({ kinds: ["字幕"] })  // 防提示注入：牌子上在最前面
 
 
 const argv = process.argv.slice(2)

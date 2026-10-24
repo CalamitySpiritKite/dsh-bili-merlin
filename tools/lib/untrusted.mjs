@@ -13,6 +13,7 @@
 // 用法（在任何输出之前调用一次）：
 //   import { installUntrustedGuard } from '../lib/untrusted.mjs'
 //   installUntrustedGuard({ kinds: ['私信'] })
+import fs from 'node:fs'
 import { config } from './config.mjs'
 
 /**
@@ -41,6 +42,31 @@ export function installUntrustedGuard(opts = {}) {
       if (mid.length >= 4) s = s.split(mid).join('「主人mid·已打码」')
       return s
     }))
+  }
+
+  // 顺带把凭据也打码（2026-10-24 补）：SESSDATA / bili_jct 一旦被打印进对话历史，
+  // 就等于把账号交出去了 —— 哪怕只是在终端里 `cat cred` 看了一眼。
+  // 这里读一次凭据文件，把值记下来，输出时替换掉。
+  let secrets = []
+  try {
+    const hp = process.env.USERPROFILE || process.env.HOME || '/'
+    const credFile = hp + '/.bili-ai/credentials.json'
+    const c = JSON.parse(fs.readFileSync(credFile, 'utf8'))
+    for (const k of ['sessdata', 'bili_jct', 'buvid3']) {
+      const v = String(c[k] ?? '').trim()
+      if (v.length >= 16) secrets.push(v)   // 太短的不打（避免误伤普通文字）
+    }
+  } catch { /* 没凭据就算了 */ }
+  if (secrets.length) {
+    const _log2 = console.log
+    const mask = (a) => {
+      let x = String(a)
+      for (const v of secrets) {
+        if (x.includes(v)) x = x.split(v).join('「凭据·已打码」')
+      }
+      return x
+    }
+    console.log = (...args) => _log2(...args.map(mask))
   }
 
   // ② 立牌子

@@ -38,5 +38,5 @@ export function resolveRuntime(dshHome, options = {}) {
     const nodeEnv = { ...env, ELECTRON_RUN_AS_NODE: '1' }
     if (probe(current, nodeEnv)) return { file: current, env: nodeEnv }
   }
-  throw Error('[bili-whale] 找不到可执行脚本的 node 运行时，请设置 DSH_NODE 为真实 node 的绝对路径')
+  throw Error('[bili-merlin] 找不到可执行脚本的 node 运行时，请设置 DSH_NODE 为真实 node 的绝对路径')
 }

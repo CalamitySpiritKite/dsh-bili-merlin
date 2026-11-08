@@ -177,7 +177,39 @@ if (!MSG) { console.error('用法: node dm.mjs --msg "…" [--share --target BV�
 
 // ── 闸门（写死，不接受参数覆盖）──────────────────────────────────────
 if (!OWNER) { console.error('✗ 配置里 owner.mid 为空 —— 私信只发给主人，没配就不发'); process.exit(2) }
-if (MSG.length > 300) { console.error(`✗ 私信太长（${MSG.length} > 300 字），退化成刷屏了 ✗`); process.exit(2) }
+
+// 2026-11-07 改（蓬松）：原来 >300 字直接 exit 2，一条都不发，看起来像"她没回我"。
+// 现在改成**分条**：每段 ≤300 字，最多 3 段（上限 900 字），段落数守住"不刷屏"的本意。
+// 超过 900 字的先截断（宁可少说，不要一下子砸 5 条过去）。
+const CHUNK_MAX = 300
+const CHUNK_LIMIT = 3
+let chunks = [MSG]
+if (MSG.length > CHUNK_MAX) {
+  chunks = []
+  let rest = MSG.length > CHUNK_MAX * CHUNK_LIMIT ? MSG.slice(0, CHUNK_MAX * CHUNK_LIMIT) : MSG
+  if (MSG.length > CHUNK_MAX * CHUNK_LIMIT) console.error(`  ⚠️ 原文 ${MSG.length} 字，超出 ${CHUNK_MAX * CHUNK_LIMIT} 上限，已截断`)
+  while (rest.length > 0 && chunks.length < CHUNK_LIMIT) {
+    if (rest.length <= CHUNK_MAX) { chunks.push(rest); rest = ''; break }
+    // 优先在句末切（。！？…；换行），找不到就硬切
+    let cut = -1
+    for (const p of ['。', '！', '？', '…', '；', '\n']) {
+      const i = rest.lastIndexOf(p, CHUNK_MAX)
+      if (i >= CHUNK_MAX * 0.5 && i > cut) cut = i + 1
+    }
+    if (cut <= 0) cut = CHUNK_MAX
+    // 切点若落在 URL 中间，退到最近的空白，别把链接劈开
+    { const head = rest.slice(0, cut); if (/https?:\/\/[^\s]*$/.test(head)) { const sp = head.lastIndexOf(' '); if (sp > CHUNK_MAX * 0.3) cut = sp } }
+    chunks.push(rest.slice(0, cut).trim())
+    rest = rest.slice(cut).trim()
+  }
+  if (rest.length > 0) chunks[chunks.length - 1] += rest  // 没切完的并进最后一段
+}
+
+// 调试：DM_DEBUG=1 时打印每段长度和最后一段的尾巴，用来确认没劈开链接
+if (process.env.DM_DEBUG) {
+  console.error('[debug] 段数=' + chunks.length + ' 各段长度=' + chunks.map((c) => c.length).join('+') + ' 合计=' + chunks.reduce((a, c) => a + c.length, 0) + ' 原=' + MSG.length)
+  console.error('[debug] 末段尾部=…' + chunks[chunks.length - 1].slice(-60))
+}
 
 const meInfo = await me()
 if (String(meInfo.mid) === ONLY_TO) { console.error('✗ 不能给自己发私信'); process.exit(2) }
@@ -199,7 +231,7 @@ if (ONE_TARGET_PER_DAY && q.date === today() && q.mid && String(q.mid) !== ONLY_
 }
 
 console.log(`[dm] ${meInfo.uname} → ${OWNER_NAME}（mid ${ONLY_TO}）`)
-console.log(`  正文 ${MSG.length} 字：${MSG.slice(0, 80)}${MSG.length > 80 ? '…' : ''}`)
+console.log(`  正文 ${MSG.length} 字${chunks.length > 1 ? `，分 ${chunks.length} 条` : ''}：${MSG.slice(0, 80)}${MSG.length > 80 ? '…' : ''}`)
 console.log(`  互关 ✓  ·  今天第 ${used + 1} 条（条数不限 ✓ 锁定给 ${OWNER_NAME} ✓）`)
 
 if (!GO && !DRY) { console.error('✗ 必须给 --dry 或 --go'); process.exit(2) }
@@ -210,12 +242,38 @@ if (SHARE) {
   if (!ok) { console.error('✗ 分享额度不允许（见上面的 [限额闸] 输出）'); process.exit(4) }
 }
 if (DRY) { console.log('  [dry] 预检通过，未发送 ✓ 正式发送时会重新检查额度'); process.exit(0) }
-const r = await send(ONLY_TO, MSG)
-if (r.code === 0) {
-  saveQ({ date: today(), count: used + 1, mid: ONLY_TO, at: new Date().toISOString() })
-  if (SHARE) record({ type: 'dm', target: SHARE_TARGET, note: MSG.slice(0, 40), auto: true, share: true })
-  console.log(`  ✓ 已发送（HTTP ${r.http}）${SHARE ? ' · 已记入分享额度 ✓' : ' · 推送不占额度 ✓'}`)
-  process.exit(0)
+// 2026-11-07 改（蓬松）：按 chunks 逐条发，长文本不再被拦死。
+const fsLog = await import('node:fs')
+const logPath = (process.env.USERPROFILE || process.env.HOME || '.') + '/.bili-ai/dm-sends.log'
+let sentCount = 0
+for (let i = 0; i < chunks.length; i++) {
+  const piece = chunks[i]
+  if (!piece) continue
+  const rr = await send(ONLY_TO, piece)
+  try {
+    fsLog.appendFileSync(logPath, JSON.stringify({
+      at: new Date().toISOString(),
+      to: ONLY_TO,
+      len: piece.length,
+      part: chunks.length > 1 ? `${i + 1}/${chunks.length}` : undefined,
+      http: rr.http,
+      code: rr.code,
+      message: rr.message || '',
+      share: !!SHARE,
+    }) + '\n')
+  } catch { /* 记日志失败不影响发送本身 */ }
+
+  if (rr.code !== 0) {
+    console.error(`  ✗ 第 ${i + 1}/${chunks.length} 条失败：HTTP ${rr.http} ${explainCode(rr.code)}${rr.message ? `（B站原文：${rr.message}）` : ''}`)
+    if (sentCount > 0) console.error(`  （前面 ${sentCount} 条已经发出去了）`)
+    process.exit(1)
+  }
+  sentCount++
+  console.log(`  ✓ 第 ${i + 1}/${chunks.length} 条已发送（${piece.length} 字）`)
+  if (i < chunks.length - 1) await new Promise((r2) => setTimeout(r2, 1200))
 }
-console.error(`  ✗ 发送失败：HTTP ${r.http} ${explainCode(r.code)}${r.message ? `（B站原文：${r.message}）` : ''}`)
-process.exit(1)
+
+saveQ({ date: today(), count: used + 1, mid: ONLY_TO, at: new Date().toISOString() })
+if (SHARE) record({ type: 'dm', target: SHARE_TARGET, note: MSG.slice(0, 40), auto: true, share: true })
+console.log(`  ✓ 全部发出（${sentCount} 条）${SHARE ? ' · 已记入分享额度 ✓' : ' · 推送不占额度 ✓'}`)
+process.exit(0)

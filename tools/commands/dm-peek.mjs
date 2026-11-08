@@ -136,7 +136,31 @@ if (opt.advance) {
 // ── 发消息 ───────────────────────────────────────────────────────────
 const MSG = String(opt.msg ?? '').trim()
 if (!MSG) { console.error('发消息需要 --msg "…"'); process.exit(2) }
-if (MSG.length > 500) { console.error(`✗ 太长了（${MSG.length} 字 > 500），私信上限 500`); process.exit(2) }
+if (MSG.length > 500) { console.error(`⚠️ 正文 ${MSG.length} 字超过 500，自动分条发送（每段 ≤500，最多 3 段）`) }
+// 2026-11-08 改（蓬松）：原来 >500 直接 exit 2、还不写日志 → 长回复凭空消失，看着像"她没回"。
+// 现在分条：每段 ≤500、最多 3 段、超 1500 截断；逐段落 dm-sends.log（带 part/source）。
+const CHUNK_MAX = 500
+const CHUNK_LIMIT = 3
+let chunks = [MSG]
+if (MSG.length > CHUNK_MAX) {
+  chunks = []
+  let rest = MSG.length > CHUNK_MAX * CHUNK_LIMIT ? MSG.slice(0, CHUNK_MAX * CHUNK_LIMIT) : MSG
+  if (MSG.length > CHUNK_MAX * CHUNK_LIMIT) console.error(`  ⚠️ 原文 ${MSG.length} 字，超出 ${CHUNK_MAX * CHUNK_LIMIT} 上限，已截断`)
+  while (rest.length > 0 && chunks.length < CHUNK_LIMIT) {
+    if (rest.length <= CHUNK_MAX) { chunks.push(rest); rest = ''; break }
+    let cut = -1
+    for (const p of ['。', '！', '？', '…', '；', '\n']) {
+      const i = rest.lastIndexOf(p, CHUNK_MAX)
+      if (i >= CHUNK_MAX * 0.5 && i > cut) cut = i + 1
+    }
+    if (cut <= 0) cut = CHUNK_MAX
+    // 切点若落在 URL 中间，退到最近的空白，别把链接劈开
+    { const head = rest.slice(0, cut); if (/https?:\/\/[^\s]*$/.test(head)) { const sp = head.lastIndexOf(' '); if (sp > CHUNK_MAX * 0.3) cut = sp } }
+    chunks.push(rest.slice(0, cut).trim())
+    rest = rest.slice(cut).trim()
+  }
+  if (rest.length > 0) chunks[chunks.length - 1] += rest
+}
 
 // ③ 一天 ≤ dailyLimit 条
 const st = readState()
@@ -175,18 +199,47 @@ body.set('msg[content]', JSON.stringify({ content: MSG }))
 body.set('csrf', cred.bili_jct)
 body.set('csrf_token', cred.bili_jct)
 
-const s = await fetch('https://api.vc.bilibili.com/web_im/v1/web_im/send_msg', {
-  method: 'POST',
-  headers: { ...H, 'content-type': 'application/x-www-form-urlencoded' },
-  body: body.toString(),
-})
-const sj = await s.json().catch(() => ({}))
-if (sj.code !== 0) {
-  console.error(`✗ 发送失败 code=${sj.code} ${explainCode(sj.code)}${sj.message ? '（B站原文：' + sj.message + '）' : ''}`)
-  process.exit(3)
+// 2026-11-08：逐条发送 chunks，每条单独落日志（原来一条都不记，失败无从查）
+let sentParts = 0
+let lastKey = '-'
+for (let i = 0; i < chunks.length; i++) {
+  const piece = chunks[i]
+  if (!piece) continue
+  const b2 = new URLSearchParams(body)
+  b2.set('msg[content]', JSON.stringify({ content: piece }))
+  b2.set('msg[timestamp]', String(Math.floor(Date.now() / 1000)))
+  const s = await fetch('https://api.vc.bilibili.com/web_im/v1/web_im/send_msg', {
+    method: 'POST',
+    headers: { ...H, 'content-type': 'application/x-www-form-urlencoded' },
+    body: b2.toString(),
+  })
+  const sj = await s.json().catch(() => ({}))
+  try {
+    const fsL = await import('node:fs')
+    const logPath = (process.env.USERPROFILE || process.env.HOME || '.') + '/.bili-ai/dm-sends.log'
+    fsL.appendFileSync(logPath, JSON.stringify({
+      at: new Date().toISOString(),
+      to: MID,
+      len: piece.length,
+      part: chunks.length > 1 ? `${i + 1}/${chunks.length}` : undefined,
+      source: 'dm-peek',
+      http: s.status,
+      code: sj.code,
+      message: sj.message || '',
+    }) + '\n')
+  } catch { /* 日志失败不挡发送 */ }
+
+  if (sj.code !== 0) {
+    console.error(`✗ 第 ${i + 1}/${chunks.length} 条失败 code=${sj.code} ${explainCode(sj.code)}${sj.message ? '（B站原文：' + sj.message + '）' : ''}`)
+    if (sentParts > 0) console.error(`  （前面 ${sentParts} 条已经发出去了）`)
+    process.exit(3)
+  }
+  sentParts++
+  lastKey = sj.data?.msg_key ?? '-'
+  console.log(`✓ 第 ${i + 1}/${chunks.length} 条已发送（${piece.length} 字）`)
+  if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 1200))
 }
-// 发成功 → 记账（统一走 quota 账本 ✓）
-console.log(`✓ 已发送给 mid ${MID}（${MSG.length} 字）msg_key=${sj.data?.msg_key ?? '-'}`)
+console.log(`✓ 全部发出（${sentParts} 条）给 mid ${MID} msg_key=${lastKey}`)
 // 让 quota 记一笔（dm-reply 类型，统一记账入口）
 try {
   const here2 = path.dirname(fileURLToPath(import.meta.url))
